@@ -12,10 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// clang-format off
-
-#include "../llvm_extensions.hpp"
-
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
@@ -78,12 +74,12 @@
 using namespace llvm;
 
 static cl::opt<bool>
-EnableNoAliasConversion("opossum-enable-noalias-to-md-conversion", cl::init(true),
+EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
   cl::Hidden,
   cl::desc("Convert noalias attributes to metadata during inlining."));
 
 static cl::opt<bool>
-PreserveAlignmentAssumptions("opossum-preserve-alignment-assumptions-during-inlining",
+PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
@@ -1493,10 +1489,9 @@ static void updateCalleeCount(BlockFrequencyInfo *CallerBFI, BasicBlock *CallBB,
 /// instruction 'call B' is inlined, and 'B' calls 'C', then the call to 'C' now
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
-bool opossum::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
+bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                           AAResults *CalleeAAR, bool InsertLifetime,
-                          Function *ForwardVarArgsTo,
-                          opossum::SpecializationContext& Context) {
+                          Function *ForwardVarArgsTo) {
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getFunction()
          && "Instruction not in function!");
@@ -1629,9 +1624,7 @@ bool opossum::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   Function::iterator FirstNewBlock;
 
   { // Scope to destroy VMap after cloning.
-    // TODO(Fabian) Check, if map is correctly copied
     ValueToValueMapTy VMap;
-    VMap.insert(Context.llvm_value_map.begin(), Context.llvm_value_map.end());
     // Keep a list of pair (dst, src) to emit byval initializations.
     SmallVector<std::pair<Value*, Value*>, 4> ByValInit;
 
@@ -1671,9 +1664,9 @@ bool opossum::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // have no dead or constant instructions leftover after inlining occurs
     // (which can happen, e.g., because an argument was constant), but we'll be
     // happy with whatever the cloner can do.
-    opossum::CloneAndPruneFunctionInto(Caller, CalledFunc, VMap,
+    CloneAndPruneFunctionInto(Caller, CalledFunc, VMap,
                               /*ModuleLevelChanges=*/false, Returns, ".i",
-                              &InlinedFunctionInfo, TheCall, Context);
+                              &InlinedFunctionInfo, TheCall);
     // Remember the first block that is newly cloned over.
     FirstNewBlock = LastBlock; ++FirstNewBlock;
 
@@ -2344,7 +2337,3 @@ bool opossum::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
   return true;
 }
-
-template constexpr bool llvm::DominatorTreeBase<llvm::BasicBlock, false>::IsPostDominator;
-
-// clang-format on
