@@ -30,6 +30,7 @@ std::shared_ptr<AbstractOperator> JitAwareLQPTranslator::translate_node(
 
 std::shared_ptr<JitOperatorWrapper> JitAwareLQPTranslator::_try_translate_node_to_jit_operators(
     const std::shared_ptr<AbstractLQPNode>& node) const {
+  std::cout << "_try_translate_node_to_jit_operators" << std::endl;
   uint32_t num_jittable_nodes{0};
   std::unordered_set<std::shared_ptr<AbstractLQPNode>> input_nodes;
 
@@ -44,11 +45,15 @@ std::shared_ptr<JitOperatorWrapper> JitAwareLQPTranslator::_try_translate_node_t
     }
   });
 
+  std::cout << "num_jittable_nodes: " << num_jittable_nodes << std::endl;
+
   // It does not make sense to create a JitOperatorWrapper for fewer than 2 LQP nodes,
   // but we may want a better heuristic here
   if (num_jittable_nodes < 2 || input_nodes.size() != 1) {
     return nullptr;
   }
+
+  std::cout << "using jit" << std::endl;
 
   // The input_node is not being integrated into the operator chain, but instead serves as the input to the JitOperators
   const auto input_node = *input_nodes.begin();

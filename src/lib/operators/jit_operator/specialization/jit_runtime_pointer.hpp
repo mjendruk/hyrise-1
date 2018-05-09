@@ -58,7 +58,8 @@ namespace opossum {
  */
 class JitRuntimePointer {
  public:
-  virtual ~JitRuntimePointer() {}
+  
+  virtual ~JitRuntimePointer() = default;
 
   // Returns whether the JitRuntimePointer can be resolved to a valid physical address.
   virtual bool is_valid() const { return false; }
