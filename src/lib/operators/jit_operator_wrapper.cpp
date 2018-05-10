@@ -66,7 +66,9 @@ std::shared_ptr<const Table> JitOperatorWrapper::_on_execute() {
   for (opossum::ChunkID chunk_id{0}; chunk_id < in_table.chunk_count(); ++chunk_id) {
     const auto& in_chunk = *in_table.get_chunk(chunk_id);
     _source()->before_chunk(in_table, in_chunk, context);
+    std::cout << "before execute_func" << std::endl;
     execute_func(_source().get(), context);
+    std::cout << "after execute_func" << std::endl;
     _sink()->after_chunk(*out_table, context);
   }
 

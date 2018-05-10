@@ -32,6 +32,7 @@ void JitCodeSpecializer::_specialize_function_impl(const std::string& root_funct
   DebugAssert(root_function, "Root function not found in repository.");
   context.root_function = _clone_function(context, *root_function, "_");
 
+  std::cout << "before passes" << std::endl;
   if (two_passes) {
     context.runtime_value_map[context.root_function->arg_begin()] = runtime_this;
     _inline_function_calls(context, false);
@@ -48,6 +49,7 @@ void JitCodeSpecializer::_specialize_function_impl(const std::string& root_funct
     _perform_load_substitution(context);
     _optimize(context, false);
   }
+  std::cout << "after passes" << std::endl;
 
   _compiler.add_module(std::move(context.module));
 }
