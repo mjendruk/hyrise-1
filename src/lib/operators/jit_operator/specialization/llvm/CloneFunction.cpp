@@ -80,11 +80,11 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
         hasDynamicAllocas = true;
     }
   }
-  
+
   if (CodeInfo) {
     CodeInfo->ContainsCalls          |= hasCalls;
     CodeInfo->ContainsDynamicAllocas |= hasDynamicAllocas;
-    CodeInfo->ContainsDynamicAllocas |= hasStaticAllocas && 
+    CodeInfo->ContainsDynamicAllocas |= hasStaticAllocas &&
                                         BB != &BB->getParent()->getEntryBlock();
   }
   return NewBB;
@@ -290,7 +290,7 @@ namespace {
 
     /// The specified block is found to be reachable, clone it and
     /// anything that it can reach.
-    void CloneBlock(const BasicBlock *BB, 
+    void CloneBlock(const BasicBlock *BB,
                     BasicBlock::const_iterator StartingInst,
                     std::vector<const BasicBlock*> &ToClone);
   };
@@ -305,7 +305,7 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
 
   // Have we already cloned this block?
   if (BBEntry) return;
-  
+
   // Nope, clone it now.
   BasicBlock *NewBB;
   BBEntry = NewBB = BasicBlock::Create(BB->getContext());
@@ -378,7 +378,7 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
         hasDynamicAllocas = true;
     }
   }
-  
+
   // Finally, clone over the terminator.
   const TerminatorInst *OldTI = BB->getTerminator();
   bool TerminatorDone = false;
@@ -411,6 +411,11 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
       Value *V = VMap.lookup(SI->getCondition());
       Cond = dyn_cast_or_null<ConstantInt>(V);
     }
+
+    if (!Cond) {
+      Cond = dyn_cast_or_null<ConstantInt>(opossum::ResolveCondition(SI->getCondition(), Context));
+    }
+
     if (Cond) {     // Constant fold to uncond branch!
       SwitchInst::ConstCaseHandle Case = *SI->findCaseValue(Cond);
       BasicBlock *Dest = const_cast<BasicBlock*>(Case.getCaseSuccessor());
@@ -418,12 +423,8 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
       ToClone.push_back(Dest);
       TerminatorDone = true;
     }
-
-    if (!Cond) {
-      Cond = dyn_cast_or_null<ConstantInt>(opossum::ResolveCondition(SI->getCondition(), Context));
-    }
   }
-  
+
   if (!TerminatorDone) {
     Instruction *NewInst = OldTI->clone();
     if (OldTI->hasName())
@@ -441,11 +442,11 @@ void PruningFunctionCloner::CloneBlock(const BasicBlock *BB,
     for (const BasicBlock *Succ : TI->successors())
       ToClone.push_back(Succ);
   }
-  
+
   if (CodeInfo) {
     CodeInfo->ContainsCalls          |= hasCalls;
     CodeInfo->ContainsDynamicAllocas |= hasDynamicAllocas;
-    CodeInfo->ContainsDynamicAllocas |= hasStaticAllocas && 
+    CodeInfo->ContainsDynamicAllocas |= hasStaticAllocas &&
       BB != &BB->getParent()->front();
   }
 }
@@ -492,7 +493,7 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
     CloneWorklist.pop_back();
     PFC.CloneBlock(BB, BB->begin(), CloneWorklist);
   }
-  
+
   // Loop over all of the basic blocks in the old function.  If the block was
   // reachable, we have cloned it and the old block is now in the value map:
   // insert it into the new function in the right order.  If not, ignore it.
@@ -524,7 +525,7 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
                      ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges,
                      TypeMapper, Materializer);
   }
-  
+
   // Defer PHI resolution until rest of function is resolved, PHI resolution
   // requires the CFG to be up-to-date.
   for (unsigned phino = 0, e = PHIToResolve.size(); phino != e; ) {
@@ -543,7 +544,7 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
         Value *V = VMap.lookup(PN->getIncomingBlock(pred));
         if (BasicBlock *MappedBlock = cast_or_null<BasicBlock>(V)) {
           Value *InVal = MapValue(PN->getIncomingValue(pred),
-                                  VMap, 
+                                  VMap,
                         ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges);
           assert(InVal && "Unknown input value?");
           PN->setIncomingValue(pred, InVal);
@@ -553,9 +554,9 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
           --pred;  // Revisit the next entry.
           --e;
         }
-      } 
+      }
     }
-    
+
     // The loop above has removed PHI entries for those blocks that are dead
     // and has updated others.  However, if a block is live (i.e. copied over)
     // but its terminator has been changed to not go to this block, then our
@@ -570,11 +571,11 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
       for (pred_iterator PI = pred_begin(NewBB), E = pred_end(NewBB);
            PI != E; ++PI)
         --PredCount[*PI];
-      
+
       // Figure out how many entries to remove from each PHI.
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
         ++PredCount[PN->getIncomingBlock(i)];
-      
+
       // At this point, the excess predecessor entries are positive in the
       // map.  Loop over all of the PHIs and remove excess predecessor
       // entries.
@@ -587,7 +588,7 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
         }
       }
     }
-    
+
     // If the loops above have made these phi nodes have 0 or 1 operand,
     // replace them with undef or the input value.  We must do this for
     // correctness, because 0-operand phis are not valid.
@@ -679,7 +680,7 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
 
     BranchInst *BI = dyn_cast<BranchInst>(I->getTerminator());
     if (!BI || BI->isConditional()) { ++I; continue; }
-    
+
     BasicBlock *Dest = BI->getSuccessor(0);
     if (!Dest->getSinglePredecessor()) {
       ++I; continue;
@@ -692,16 +693,16 @@ void opossum::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFu
     // We know all single-entry PHI nodes in the inlined function have been
     // removed, so we just need to splice the blocks.
     BI->eraseFromParent();
-    
+
     // Make all PHI nodes that referred to Dest now refer to I as their source.
     Dest->replaceAllUsesWith(&*I);
 
     // Move all the instructions in the succ to the pred.
     I->getInstList().splice(I->end(), Dest->getInstList());
-    
+
     // Remove the dest block.
     Dest->eraseFromParent();
-    
+
     // Do not increment I, iteratively merge all things this block branches to.
   }
 
@@ -755,7 +756,7 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
                                    const Twine &NameSuffix, LoopInfo *LI,
                                    DominatorTree *DT,
                                    SmallVectorImpl<BasicBlock *> &Blocks) {
-  assert(OrigLoop->getSubLoops().empty() && 
+  assert(OrigLoop->getSubLoops().empty() &&
          "Loop to be cloned cannot have inner loop");
   Function *F = OrigLoop->getHeader()->getParent();
   Loop *ParentLoop = OrigLoop->getParentLoop();
