@@ -42,7 +42,7 @@ JitRepository::JitRepository(const std::string& module_string)
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();
 
-  llvm::StripDebugInfo(*_module);
+  // llvm::StripDebugInfo(*_module);
 
   // Extract functions
   for (auto& function : *_module) {

@@ -62,6 +62,7 @@ std::shared_ptr<const Table> JitOperatorWrapper::_on_execute() {
       execute_func = &JitReadTuples::execute;
       break;
   }
+  std::cout << description(DescriptionMode::MultiLine) << std::endl;
 
   for (opossum::ChunkID chunk_id{0}; chunk_id < in_table.chunk_count(); ++chunk_id) {
     const auto& in_chunk = *in_table.get_chunk(chunk_id);

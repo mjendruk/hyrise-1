@@ -7,13 +7,17 @@
 namespace opossum {
 
 JitExpression::JitExpression(const JitTupleValue& tuple_value)
-    : _expression_type{ExpressionType::Column}, _result_value{tuple_value} {}
+    : _expression_type{ExpressionType::Column}, _result_value{tuple_value} {
+      if (_left_child) Fail("_left_child is set");
+    }
 
 JitExpression::JitExpression(const std::shared_ptr<const JitExpression>& child, const ExpressionType expression_type,
                              const size_t result_tuple_index)
     : _left_child{child},
       _expression_type{expression_type},
-      _result_value{JitTupleValue(_compute_result_type(), result_tuple_index)} {}
+      _result_value{JitTupleValue(_compute_result_type(), result_tuple_index)} {
+        if (!_left_child) Fail("_left_child is not set in constructor");
+      }
 
 JitExpression::JitExpression(const std::shared_ptr<const JitExpression>& left_child,
                              const ExpressionType expression_type,
@@ -21,7 +25,9 @@ JitExpression::JitExpression(const std::shared_ptr<const JitExpression>& left_ch
     : _left_child{left_child},
       _right_child{right_child},
       _expression_type{expression_type},
-      _result_value{JitTupleValue(_compute_result_type(), result_tuple_index)} {}
+      _result_value{JitTupleValue(_compute_result_type(), result_tuple_index)} {
+        if (!_left_child) Fail("_left_child is not set in big constructor");
+      }
 
 std::string JitExpression::to_string() const {
   if (_expression_type == ExpressionType::Column) {
@@ -38,6 +44,8 @@ void JitExpression::compute(JitRuntimeContext& context) const {
   if (_expression_type == ExpressionType::Column) {
     return;
   }
+
+  if (!_left_child) Fail("_left_child is not set in compute");
 
   _left_child->compute(context);
 

@@ -7,6 +7,9 @@
 #include <llvm/Transforms/IPO/ForceFunctionAttrs.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/Scalar.h>
+#include <llvm/IR/Module.h>
+#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/IR/IRPrintingPasses.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -16,6 +19,14 @@
 
 namespace opossum {
 
+namespace {
+void print(SpecializationContext &context) {
+  llvm::legacy::PassManager pass_manager;
+  pass_manager.add(llvm::createPrintModulePass(llvm::errs()));
+  pass_manager.run(*context.module);
+}
+}
+
 JitCodeSpecializer::JitCodeSpecializer()
     : _repository{JitRepository::get()}, _llvm_context{_repository.llvm_context()}, _compiler{_llvm_context} {}
 
@@ -24,8 +35,10 @@ void JitCodeSpecializer::_specialize_function_impl(const std::string& root_funct
                                                    const bool two_passes) {
   SpecializationContext context;
   context.root_function_name = root_function_name;
+  std::cerr << root_function_name << std::endl;
   context.module = std::make_unique<llvm::Module>(root_function_name, *_llvm_context);
   context.module->setDataLayout(_compiler.data_layout());
+  context.module->print(llvm::errs(), nullptr);
 
   const auto root_function = _repository.get_function(root_function_name);
 
@@ -45,9 +58,13 @@ void JitCodeSpecializer::_specialize_function_impl(const std::string& root_funct
     _optimize(context, false);
   } else {
     context.runtime_value_map[context.root_function->arg_begin()] = runtime_this;
+    std::cout << "before inline" << std::endl;
+    if (false) print(context); // ensures that print function is used
     _inline_function_calls(context, false);
-    _perform_load_substitution(context);
-    _optimize(context, false);
+    std::cout << "after inline" << std::endl;
+    //print(context);
+    //_perform_load_substitution(context);
+    //_optimize(context, false);
   }
   std::cout << "after passes" << std::endl;
 
@@ -82,11 +99,26 @@ void JitCodeSpecializer::_inline_function_calls(SpecializationContext& context, 
       }
     }
 
+
     auto& function = *call_site.getCalledFunction();
     auto function_name = function.getName().str();
     auto x = !boost::starts_with(function.getName().str(), "_ZNK7opossum") &&
              !boost::starts_with(function.getName().str(), "_ZN7opossum") &&
              function.getName().str() != "__clang_call_terminate";
+
+    // added option to limit the number of inlined methods
+    if (false && !x) { //  && function.getName().str().find("compute") != std::string::npos
+      static int counter = 0;
+      std::cout << "counter: " << ++counter << " ";
+      // select a+1 from table_a; fails as 4th function is 2nd compute function
+      // would work if only the first four methods are inlined.
+      if (counter > 5) {
+        x = true;
+        std::cout << "not inlining " << function.getName().str() << std::endl;
+      } else {
+        std::cout << "inlining " << function.getName().str() << " number: " << counter << std::endl;
+      }
+    }
     if (x) {
       context.llvm_value_map[&function] = _create_function_declaration(context, function);
       call_sites.pop();
@@ -124,6 +156,8 @@ void JitCodeSpecializer::_inline_function_calls(SpecializationContext& context, 
     for (; function_arg != function.arg_end() && call_arg != call_site.arg_end(); ++function_arg, ++call_arg) {
       context.llvm_value_map[function_arg] = call_arg->get();
     }
+
+    std::cout << "Inlining function: " << function.getName().str() << std::endl;
 
     llvm::InlineFunctionInfo info;
     // TODO(Fabian) check 2nd last argument value nullptr for llvm::Function *ForwardVarArgsTo
@@ -189,7 +223,9 @@ void JitCodeSpecializer::_optimize(SpecializationContext& context, const bool un
   pass_manager.add(llvm::createCFGSimplificationPass());
   // Combines instructions to fold computation of expressions with many constants
   pass_manager.add(llvm::createInstructionCombiningPass(false));
+  std::cout << "before run" << std::endl;
   pass_manager.run(*context.module);
+  std::cout << "after run" << std::endl;
 }
 
 llvm::Function* JitCodeSpecializer::_create_function_declaration(SpecializationContext& context,

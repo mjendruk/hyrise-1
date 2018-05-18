@@ -1630,8 +1630,12 @@ bool opossum::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
   { // Scope to destroy VMap after cloning.
     // TODO(Fabian) Check, if map is correctly copied
-    ValueToValueMapTy VMap;
-    VMap.insert(Context.llvm_value_map.begin(), Context.llvm_value_map.end());
+    ValueToValueMapTy VMap; // = Context.llvm_value_map;
+    // Iterator must be const to ensure that values are copied and not moved during insert
+    for (ValueToValueMapTy::const_iterator itr = Context.llvm_value_map.begin();
+            itr != Context.llvm_value_map.end(); ++itr) {
+       VMap.insert(*itr);
+    }
     // Keep a list of pair (dst, src) to emit byval initializations.
     SmallVector<std::pair<Value*, Value*>, 4> ByValInit;
 

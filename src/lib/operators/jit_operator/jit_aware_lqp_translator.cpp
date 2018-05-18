@@ -49,7 +49,7 @@ std::shared_ptr<JitOperatorWrapper> JitAwareLQPTranslator::_try_translate_node_t
 
   // It does not make sense to create a JitOperatorWrapper for fewer than 2 LQP nodes,
   // but we may want a better heuristic here
-  if (num_jittable_nodes < 2 || input_nodes.size() != 1) {
+  if (num_jittable_nodes < 1 || input_nodes.size() != 1) {
     return nullptr;
   }
 

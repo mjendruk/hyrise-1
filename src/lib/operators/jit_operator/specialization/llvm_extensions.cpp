@@ -87,8 +87,14 @@ llvm::Constant* ConstantFoldInstruction(llvm::Instruction* inst, llvm::ArrayRef<
     return nullptr;
   }
 
+  if (const auto* load_inst = llvm::dyn_cast<llvm::StoreInst>(inst)) {
+    std::cerr << "store instruction" << std::endl;
+  }
+
   // Individually handle instructions that are not captured by the generic llvm::ConstantFoldInstOperands function
   if (const auto* compare_inst = llvm::dyn_cast<llvm::CmpInst>(inst)) {
+    std::cerr << "cmp inst" << std::endl;
+    //if(true) return nullptr;
     return llvm::ConstantFoldCompareInstOperands(compare_inst->getPredicate(), operands[0], operands[1], data_layout,
                                                  target_library_info);
   } else if (auto* insert_value_inst = llvm::dyn_cast<llvm::InsertValueInst>(inst)) {
