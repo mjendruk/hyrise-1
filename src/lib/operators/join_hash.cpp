@@ -1,6 +1,7 @@
 #include "join_hash.hpp"
 
 #include <boost/lexical_cast.hpp>
+#include <cmath>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -111,7 +112,7 @@ class JoinHash::JoinHashImpl : public AbstractJoinOperatorImpl {
   std::shared_ptr<Table> _output_table;
 
   const unsigned int _partitioning_seed = 13;
-  const size_t _radix_bits = 9;
+  size_t _radix_bits;
 
   // Determine correct type for hashing
   using HashedType = typename JoinHashTraits<LeftType, RightType>::HashType;
@@ -554,8 +555,19 @@ class JoinHash::JoinHashImpl : public AbstractJoinOperatorImpl {
     */
     TableColumnDefinitions output_column_definitions;
 
-    auto _right_in_table = _right->get_output();
     auto _left_in_table = _left->get_output();
+    auto _right_in_table = _right->get_output();
+
+    // estimate the number of needed radix bits based on the size of the biggest chunk
+    size_t max_chunk_size = 0;
+    for (const auto& chunk : _left_in_table->chunks()) {
+      if (chunk->size() > max_chunk_size) max_chunk_size = chunk->size();
+    }
+    for (const auto& chunk : _right_in_table->chunks()) {
+      if (chunk->size() > max_chunk_size) max_chunk_size = chunk->size();
+    }
+    // choose a number of bits within [1, 9]
+    _radix_bits = std::min(std::max((int)std::log2(max_chunk_size) - 3, 1), 9);
 
     if (_inputs_swapped) {
       // Semi/Anti joins are always swapped but do not need the outer relation
