@@ -23,7 +23,10 @@ class HashTable : private Noncopyable {
  public:
   explicit HashTable(size_t input_table_size) : _input_table_size(input_table_size) {
     // prepare internal hash tables and fill with empty elements
-    _hashtables.resize(NUMBER_OF_HASH_FUNCTIONS, std::vector<std::shared_ptr<HashElement>>(input_table_size));
+    _hashtables.resize(NUMBER_OF_HASH_FUNCTIONS);
+    for(auto& hashtable : _hashtables) {
+      hashtable.resize(input_table_size);
+    }
   }
 
   // we need to explicitly set the move constructor to default when
@@ -38,15 +41,14 @@ class HashTable : private Noncopyable {
     // Check whether value is already in hashtable, then just add row id
     for (size_t i = 0; i < NUMBER_OF_HASH_FUNCTIONS; i++) {
       auto position = hash<T>(i, value);
-      auto element = _hashtables[i][position];
+      auto& element = _hashtables[i][position];
       if (element != nullptr && value_equal(element->value, value)) {
-        element->row_ids->push_back(row_id);
+        element->row_ids.push_back(row_id);
         return;
       }
     }
-    auto element =
-        std::make_shared<HashElement>(HashElement{value, std::make_shared<PosList>(pmr_vector<RowID>{row_id})});
-    place(element, 0, 0);
+    auto element = std::make_unique<HashElement>(HashElement{value, pmr_vector<RowID>{row_id}});
+    place(std::move(element), 0, 0);
   }
 
   /*
@@ -54,15 +56,15 @@ class HashTable : private Noncopyable {
   All the matching RowIDs are returned in row_ids.
   */
   template <typename S>
-  std::shared_ptr<PosList> get(S value) {
+  std::optional<std::reference_wrapper<const PosList>> get(S value) {
     for (size_t i = 0; i < NUMBER_OF_HASH_FUNCTIONS; i++) {
       auto position = hash<S>(i, value);
-      auto element = _hashtables[i][position];
+      const auto& element = _hashtables[i][position];
       if (element != nullptr && value_equal(element->value, value)) {
         return element->row_ids;
       }
     }
-    return nullptr;
+    return {};
   }
 
  protected:
@@ -71,7 +73,7 @@ class HashTable : private Noncopyable {
   */
   struct HashElement {
     T value;
-    std::shared_ptr<PosList> row_ids;
+    PosList row_ids;
   };
 
   /*
@@ -83,7 +85,7 @@ class HashTable : private Noncopyable {
   n: maximum number of times function can be recursively
   called before stopping and declaring presence of cycle
   */
-  void place(std::shared_ptr<HashElement> element, int hash_function, size_t iterations) {
+  void place(std::unique_ptr<HashElement> element, int hash_function, size_t iterations) {
     /*
     We were not able to reproduce this case with the current setting (3 hash functions). With 3 hash functions the
     hash table will have a maximum load of 33%, which should be less enough to avoid cycles at all. In theory there
@@ -100,12 +102,12 @@ class HashTable : private Noncopyable {
     auto position = hash(hash_function, element->value);
     auto& hashtable = _hashtables[hash_function];
 
-    auto old_element = hashtable[position];
+    auto& old_element = hashtable[position];
     if (old_element != nullptr) {
-      hashtable[position] = element;
-      place(old_element, (hash_function + 1) % NUMBER_OF_HASH_FUNCTIONS, iterations + 1);
+      hashtable[position] = std::move(element);
+      place(std::move(old_element), (hash_function + 1) % NUMBER_OF_HASH_FUNCTIONS, iterations + 1);
     } else {
-      hashtable[position] = element;
+      hashtable[position] = std::move(element);
     }
   }
 
@@ -119,6 +121,6 @@ class HashTable : private Noncopyable {
   }
 
   size_t _input_table_size;
-  std::vector<std::vector<std::shared_ptr<HashElement>>> _hashtables;
+  std::vector<std::vector<std::unique_ptr<HashElement>>> _hashtables;
 };
 }  // namespace opossum
