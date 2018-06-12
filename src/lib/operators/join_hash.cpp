@@ -321,25 +321,12 @@ class JoinHash::JoinHashImpl : public AbstractJoinOperatorImpl {
     std::vector<std::shared_ptr<AbstractTask>> jobs;
     jobs.reserve(offsets.size());
 
+    // calculate output offsets for each partition, starting with a copy of where the partitions start
+    // this will be copied into each job
+    auto output_offsets = radix_output.partition_offsets;
+
     for (ChunkID chunk_id{0}; chunk_id < offsets.size(); ++chunk_id) {
-      jobs.emplace_back(std::make_shared<JobTask>([&, chunk_id] {
-        // calculate output offsets for each partition
-        auto output_offsets = std::vector<size_t>(num_partitions, 0);
-
-        // add up the output offsets for chunks before this one
-        for (ChunkID i{0}; i < chunk_id; ++i) {
-          const auto& histogram = *histograms[i];
-          for (size_t j = 0; j < num_partitions; ++j) {
-            output_offsets[j] += histogram[j];
-          }
-        }
-        for (auto i = chunk_id; i < offsets.size(); ++i) {
-          const auto& histogram = *histograms[i];
-          for (size_t j = 1; j < num_partitions; ++j) {
-            output_offsets[j] += histogram[j - 1];
-          }
-        }
-
+      jobs.emplace_back(std::make_shared<JobTask>([&, chunk_id, output_offsets]() mutable {
         size_t input_offset = offsets[chunk_id];
 
         size_t input_size = 0;
@@ -363,6 +350,11 @@ class JoinHash::JoinHashImpl : public AbstractJoinOperatorImpl {
         }
       }));
       jobs.back()->schedule();
+
+      // adjust the output_offsets so that the next task starts at the appropriate position
+      for (size_t partition_id = 0; partition_id < num_partitions; ++partition_id) {
+        output_offsets[partition_id] = (*histograms[chunk_id])[partition_id];
+      }
     }
 
     CurrentScheduler::wait_for_tasks(jobs);
