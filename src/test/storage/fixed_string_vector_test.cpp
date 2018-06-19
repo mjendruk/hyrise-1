@@ -159,17 +159,6 @@ TEST_F(FixedStringVectorTest, Sort) {
   EXPECT_EQ(fixed_string_vector1[4u], "Mark");
 }
 
-TEST_F(FixedStringVectorTest, StringLengthZero) {
-  std::vector<std::string> strings = {"", ""};
-  auto fixed_string_vector1 = FixedStringVector(strings.begin(), strings.end(), 0u, 0u);
-  EXPECT_EQ(fixed_string_vector1.size(), 1u);
-  EXPECT_EQ(fixed_string_vector1[0u], "");
-
-  fixed_string_vector1.push_back("");
-  EXPECT_EQ(fixed_string_vector1.size(), 1u);
-  EXPECT_EQ(fixed_string_vector1[0u], "");
-}
-
 TEST_F(FixedStringVectorTest, CompareStdStringToFixedString) {
   EXPECT_EQ(fixed_string_vector->at(0u), "foo");
   EXPECT_EQ("foo", fixed_string_vector->at(0u));

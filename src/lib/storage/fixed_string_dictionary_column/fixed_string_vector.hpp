@@ -24,6 +24,7 @@ class FixedStringVector {
   // Create a FixedStringVector of FixedStrings with given values by iterating over other container
   template <class Iter>
   FixedStringVector(Iter first, Iter last, size_t string_length, size_t amount_values) : _string_length(string_length) {
+    DebugAssert(string_length > 0, "Can't construct FixedStringVector with length == 0");
     _chars.reserve(_string_length * amount_values);
     _iterator_push_back(first, last);
   }
