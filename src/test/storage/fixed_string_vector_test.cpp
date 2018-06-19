@@ -133,12 +133,9 @@ TEST_F(FixedStringVectorTest, ConstFixedStringVector) {
 TEST_F(FixedStringVectorTest, ConstIteratorConstructor) {
   std::vector<std::string> v1 = {"abc", "def", "ghi"};
   auto v2 = FixedStringVector{v1.cbegin(), v1.cend(), 3, 3};
-  std::vector<std::string> v3 = {};
-  auto v4 = FixedStringVector{v3.cbegin(), v3.cend(), 0, 0};
 
   EXPECT_EQ(v2[0u], "abc");
   EXPECT_EQ(v2.size(), 3u);
-  EXPECT_EQ(v4.size(), 1u);
 }
 
 TEST_F(FixedStringVectorTest, DataSize) { EXPECT_EQ(fixed_string_vector->data_size(), 58u); }

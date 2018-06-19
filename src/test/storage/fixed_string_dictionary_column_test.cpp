@@ -138,20 +138,20 @@ TEST_F(StorageFixedStringDictionaryColumnTest, MemoryUsageEstimation) {
    * memory usage estimations
    */
 
-  const auto empty_memory_usage =
+  vc_str->append("A");
+  const auto one_element_memory_usage =
       encode_column(EncodingType::FixedStringDictionary, DataType::String, vc_str)->estimate_memory_usage();
 
-  vc_str->append("A");
   vc_str->append("B");
   vc_str->append("C");
   const auto compressed_column = encode_column(EncodingType::FixedStringDictionary, DataType::String, vc_str);
   const auto dictionary_column = std::dynamic_pointer_cast<FixedStringDictionaryColumn<std::string>>(compressed_column);
 
   static constexpr auto size_of_attribute = 1u;
-  static constexpr auto size_of_dictionary = 3u;
+  static constexpr auto size_of_dictionary_entry = 1u;
 
   EXPECT_EQ(dictionary_column->estimate_memory_usage(),
-            empty_memory_usage + 3 * size_of_attribute + size_of_dictionary);
+            one_element_memory_usage + 2 * size_of_attribute + 2 * size_of_dictionary_entry);
 }
 
 }  // namespace opossum
